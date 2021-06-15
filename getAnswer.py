@@ -2,20 +2,37 @@ import torch
 import numpy as np
 from torch import nn
 from transformers import AutoModel, AutoTokenizer
+from vncorenlp import VnCoreNLP
 import torch.nn.functional as F
 import pandas as pd
+import time 
 from heapq import nlargest
+import os
 
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+# tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base')
+# model = AutoModel.from_pretrained('vinai/phobert-base')
 tokenizer = AutoTokenizer.from_pretrained('FPTAI/vibert-base-cased', do_lower_case=False)
-model = AutoModel.from_pretrained('FPTAI/vibert-base-cased')
-model.load_state_dict(torch.load('save/fpt_bert_model.pt', map_location=torch.device('cpu')))
-data_df = pd.read_csv('save/qa_data.csv', header=None)
-ans = data_df[1].tolist()
-ques = data_df[0].tolist()
+model = AutoModel.from_pretrained('FPTAI/vibert-base-cased').to(device)
+
+model.load_state_dict(torch.load('save/bert_model.pt', map_location=device))
+data_df = pd.read_csv('save/final_data_embedded_fpt.csv', header=None)
+ids = data_df[0].tolist()
+ques = data_df[1].tolist()
 emb_str = data_df[2].tolist()
 emb = [torch.from_numpy(np.fromstring(emb_str[i][2:-2], dtype=float, sep=",")).unsqueeze(0) for i in range(len(emb_str))]
 
 del data_df, emb_str
+# rdrsegmenter = VnCoreNLP("vncorenlp/VnCoreNLP-1.1.1.jar", annotators="wseg", max_heap_size='-Xmx500m')
+
+
+def segment(txt):
+    ori_sent = []
+    sentences = rdrsegmenter.tokenize(txt)
+    for sentence in sentences:
+        ori_sent.append(' '.join(sentence))
+    txt = " ".join(ori_sent)
+    return txt
 
 
 def get_embed(txt):
@@ -43,19 +60,21 @@ def get_similarity(embed1, embed2):
     return score
 
 
-def answer(txt):
+def answer(txt, num_id):
     embedding = get_embed(txt)
     sim_score = [get_similarity(embedding, emb[i]) for i in range(1, len(emb))]
     # ans_id = sim_score.index(max(sim_score))
-    ans_id = nlargest(3, range(len(sim_score)), key=lambda idx: sim_score[idx])
+    id_index = nlargest(num_id, range(len(sim_score)), key=lambda idx: sim_score[idx])
     del sim_score, embedding
-    sim_q_list = [ques[ans_id[0]], ques[ans_id[1]], ques[ans_id[2]]]
-    ans_list = [ans[ans_id[0]], ans[ans_id[1]], ans[ans_id[2]]]
-    return sim_q_list, ans_list
+    sim_q_list = [ques[ans_id[i]] for i in range(len(id_index))]
+    id_list = [ids[ans_id[0]] for i in range(len(id_index))]
+    return sim_q_list, id_list
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
     # a = time.time()
     # print(answer('Cà tím có giúp giảm béo không?'))
     # b = time.time()
     # print(b-a)
+    print(segment('Cà tím có giúp giảm béo không?'))
+    # print(os.system("java -version"))

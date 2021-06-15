@@ -10,10 +10,12 @@ app.config["DEBUG"] = True
 def get_answer():
     query_params = request.args
     txt = query_params.get('text')
-    sim_q, ans = answer(txt)
-    result = {'question': txt, 'first': {'similar question1': sim_q[0], 'answer1': ans[0]},
-            'second': {'similar question2': sim_q[1], 'answer1': ans[1]},
-            'third': {'similar question3': sim_q[2], 'answer1': ans[2]}}
+    num_id = 1
+    sim_q, ids = answer(txt, num_id)
+    result = {'question': txt, 'result': {}}
+    for i in range(len(sim_q)):
+        result['result']['sim_ques'] = sim_q[i]
+        result['result']['id'] = ids[i]
     return jsonify(result)
 
 
