@@ -15,7 +15,7 @@ device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 tokenizer = AutoTokenizer.from_pretrained('FPTAI/vibert-base-cased', do_lower_case=False)
 model = AutoModel.from_pretrained('FPTAI/vibert-base-cased').to(device)
 
-model.load_state_dict(torch.load('save/bert_model.pt', map_location=device))
+model.load_state_dict(torch.load('save/fpt_bert_model_v2.pt', map_location=device))
 data_df = pd.read_csv('save/final_data_embedded_fpt.csv', header=None)
 ids = data_df[0].tolist()
 ques = data_df[1].tolist()
@@ -26,13 +26,13 @@ del data_df, emb_str
 # rdrsegmenter = VnCoreNLP("vncorenlp/VnCoreNLP-1.1.1.jar", annotators="wseg", max_heap_size='-Xmx500m')
 
 
-def segment(txt):
-    ori_sent = []
-    sentences = rdrsegmenter.tokenize(txt)
-    for sentence in sentences:
-        ori_sent.append(' '.join(sentence))
-    txt = " ".join(ori_sent)
-    return txt
+# def segment(txt):
+#     ori_sent = []
+#     sentences = rdrsegmenter.tokenize(txt)
+#     for sentence in sentences:
+#         ori_sent.append(' '.join(sentence))
+#     txt = " ".join(ori_sent)
+#     return txt
 
 
 def get_embed(txt):
@@ -62,19 +62,20 @@ def get_similarity(embed1, embed2):
 
 def answer(txt, num_id):
     embedding = get_embed(txt)
-    sim_score = [get_similarity(embedding, emb[i]) for i in range(1, len(emb))]
+    sim_score = [get_similarity(embedding, emb[i]) for i in range(0, len(emb))]
     # ans_id = sim_score.index(max(sim_score))
     id_index = nlargest(num_id, range(len(sim_score)), key=lambda idx: sim_score[idx])
-    del sim_score, embedding
-    sim_q_list = [ques[ans_id[i]] for i in range(len(id_index))]
-    id_list = [ids[ans_id[0]] for i in range(len(id_index))]
-    return sim_q_list, id_list
+    del embedding
+    sim_q_list = [ques[id_index[i]] for i in range(len(id_index))]
+    id_list = [ids[id_index[i]] for i in range(len(id_index))]
+    score = [sim_score[i] for i in id_index]
+    return sim_q_list, id_list, score
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
     # a = time.time()
     # print(answer('Cà tím có giúp giảm béo không?'))
     # b = time.time()
     # print(b-a)
-    print(segment('Cà tím có giúp giảm béo không?'))
+    # print(segment('Cà tím có giúp giảm béo không?'))
     # print(os.system("java -version"))
